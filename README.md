@@ -74,6 +74,9 @@ There are a lot of available configuration options for Twippy.
  * twitter_consumer_secret - Twitter consumer secret.
  * twitter_oauth_token - Twitter OAuth token.
  * twitter_oauth_token_secret - Twitter OAuth token secret.
+ * twitter_stream = Set to true to use Twitter streaming API for faster response time.
+ * twitter_username = Username of account (used by streaming API)
+ * twitter_password = Password of account (used by streaming API)
  * twitter_update_time - Seconds between each twitter search.
  * twitter_search - The text to search twitter statuses for.
  * ignorelist - Comma separated list of twitter names to ignore.
@@ -149,7 +152,6 @@ TODO
 Some ideas for future development.
 
  * List of twitter searches and which plugin command to match them to.
- * Use streaming API for quicker updates.
  * Automatically get oauth token.
  * Import Shoutbridge plugin (and utils/) automatically instead of copies.
 

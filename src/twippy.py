@@ -41,6 +41,18 @@ from utils.Conf import Conf
 from utils.utilities import loadUrl, strip_tags
 from utils.HaliDb import *
 
+class Listener (tweepy.streaming.StreamListener):
+    def add_handler(self, func):
+        self.status_handler = func
+
+    def on_status(self, status):
+        print "Received twitter status:", status.text
+        if self.status_handler:
+            self.status_handler(status)
+        else:
+            print "ERROR: No twitter status handler."
+        return
+
 class Shout(BridgeClass):
     id = None
     userid = 0
@@ -194,11 +206,32 @@ class Twippy(BridgeClass):
         try:
             auth = tweepy.OAuthHandler(self.cfg.get('twitter_consumer_key'), self.cfg.get('twitter_consumer_secret'))
             auth.set_access_token(self.cfg.get('twitter_oauth_token'), self.cfg.get('twitter_oauth_token_secret'))
+            streamtwitter = self.cfg.get('twitter_stream')
+            username = self.cfg.get('twitter_username')
+            password = self.cfg.get('twitter_password')
         except KeyError, ke:
             print "Couldn't find twitter authentication information in config file:", ke
             sys.exit(1)
         self.twit = tweepy.API(auth)
 
+        # Listen to Twitter stream.
+        try:
+            if streamtwitter:
+                self.stream_twitter(username, password)
+            else:
+                self.twitter_loop()
+        except KeyboardInterrupt:
+            print "Quitting..."
+            sys.exit(0)
+
+    def stream_twitter(self, username, password):
+        listener = Listener(self.twit)
+        listener.add_handler(self.handle_tweet)
+        stream = tweepy.streaming.Stream(username, password, listener)
+        searchstr = self.cfg.get('twitter_search');
+        stream.filter( track=( searchstr, ) )
+
+    def twitter_loop(self):
         # Start listening to Twitter mentions.
         utime = float(self.cfg.get('twitter_update_time'))
         self.logprint("Starting reactor with utime:", utime)
@@ -237,7 +270,11 @@ class Twippy(BridgeClass):
         """
         latest_id = int(self.db.get_value('twitter_latest_search_id') or 0)
         self.logprint("Searching tweets using keyword:", searchstr, latest_id)
-        tweets = self.twit.search(searchstr, since_id=latest_id)
+        try:
+            tweets = self.twit.search(searchstr, since_id=latest_id)
+        except tweepy.error.TweepError, te:
+            self.logprint("Failed searching twitter.", te)
+            return
         for tweet in tweets:
             #self.logprint("search result:", self.print_items(tweet.__dict__.items()))
             self.logprint('Found matching tweet:', tweet.from_user, tweet.text, tweet.id)
@@ -249,25 +286,32 @@ class Twippy(BridgeClass):
 
     def handle_tweet(self, tweet):
         self.logprint("Handling tweet:", tweet)
-        self.dump(tweet)
+        #self.dump(tweet)
+        #self.logprint("User:")
+        #self.dump(tweet.user)
+        #self.logprint("Author:")
+        #self.dump(tweet.author)
+
         # Skip tweets from own account.
-        if tweet.from_user == self.twit.me().screen_name:
+        #if tweet.from_user == self.twit.me().screen_name:
+        if tweet.author.screen_name == self.twit.me().screen_name:
             #print "screen_name = my_name", tweet.user.screen_name, my_name
             self.logprint("Tweet was from myself", tweet)
             return
 
         # Remove search string from text
+        # FIXME: Move compiled pattern to class attribute.
         s = self.cfg.get('twitter_search')
         p = re.compile(r'\s*' + s + ':?\s*')
         text = re.sub(p, '', tweet.text, re.IGNORECASE)
 
         # Ugly hack to make GoldQuest work.
         text = '!quest %s' % text
-        message = Shout(id=tweet.id, text=text, name=tweet.from_user)
-        self.dump(message)
+        #message = Shout(id=tweet.id, text=text, name=tweet.from_user)
+        message = Shout(id=tweet.id, text=text, name=tweet.author.screen_name)
+        #self.dump(message)
 
         # Send text to all plugins.
-
         status = self.trigger_plugin_event('Message', message)
 
         # If a string was returned, send it directly.
