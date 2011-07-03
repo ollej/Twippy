@@ -34,7 +34,7 @@ Requirements
  * SQLAlchemy
  * BeautifulSoup
  * Sqlite
- * Tweepy
+ * Tweepy (requires bleeding edge code from tweepy.github.com)
  * simplejson (for Google plugin)
 
 Installation
@@ -45,9 +45,14 @@ Install necessary modules:
 
     $ sudo easy_install Twisted
     $ sudo easy_install sqlalchemy
-    $ sudo easy_install tweepy
     $ sudo easy_install beautifulsoup
     $ sudo easy_install simplejson
+
+Install Tweepy:
+
+    $ git clone https://github.com/tweepy/tweepy.git 
+    $ cd tweepy
+    $ sudo python setup.py install
 
 Next, create a configuration file from the example.
 
@@ -74,10 +79,8 @@ There are a lot of available configuration options for Twippy.
  * twitter_consumer_secret - Twitter consumer secret.
  * twitter_oauth_token - Twitter OAuth token.
  * twitter_oauth_token_secret - Twitter OAuth token secret.
- * twitter_stream = Set to true to use Twitter streaming API for faster response time.
- * twitter_username = Username of account (used by streaming API)
- * twitter_password = Password of account (used by streaming API)
- * twitter_update_time - Seconds between each twitter search.
+ * twitter_stream = Set to true to use Twitter streaming API for faster response time. Recommended.
+ * twitter_update_time - Seconds between each twitter search if not using streaming API.
  * twitter_search - The text to search twitter statuses for.
  * ignorelist - Comma separated list of twitter names to ignore.
  * sender_nick - Add nick of sender to all tweets (based on plugin)
@@ -88,7 +91,7 @@ In order to use this script you will have to set it up to authenticate to
 a Twitter account.
 
 Twitter uses OAuth for authentication, which means that you will have to
-register your own instance of Shoutbridge as an application at
+register your own instance of Twippy as an application at
 http://dev.twitter.com where you need to log in using the account you want
 the application to tweet as.
 

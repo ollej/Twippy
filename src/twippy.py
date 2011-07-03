@@ -47,7 +47,7 @@ class Listener (tweepy.streaming.StreamListener):
 
     def on_status(self, status):
         print "Received twitter status:", status.text
-        if self.status_handler:
+        if callable(self.status_handler):
             self.status_handler(status)
         else:
             print "ERROR: No twitter status handler."
@@ -204,30 +204,30 @@ class Twippy(BridgeClass):
         #self.logprint("consumer key/secret:", self.cfg.get('twitter_consumer_key'), self.cfg.get('twitter_consumer_secret'))
         #self.logprint("ouath token/secret:", self.cfg.get('twitter_oauth_token'), self.cfg.get('twitter_oauth_token_secret'))
         try:
-            auth = tweepy.OAuthHandler(self.cfg.get('twitter_consumer_key'), self.cfg.get('twitter_consumer_secret'))
-            auth.set_access_token(self.cfg.get('twitter_oauth_token'), self.cfg.get('twitter_oauth_token_secret'))
-            streamtwitter = self.cfg.get('twitter_stream')
-            username = self.cfg.get('twitter_username')
-            password = self.cfg.get('twitter_password')
+            self.auth = tweepy.OAuthHandler(self.cfg.get('twitter_consumer_key'), self.cfg.get('twitter_consumer_secret'))
+            self.auth.set_access_token(self.cfg.get('twitter_oauth_token'), self.cfg.get('twitter_oauth_token_secret'))
+            streamtwitter = self.cfg.get_bool('twitter_stream')
+            #username = self.cfg.get('twitter_username')
+            #password = self.cfg.get('twitter_password')
         except KeyError, ke:
             print "Couldn't find twitter authentication information in config file:", ke
             sys.exit(1)
-        self.twit = tweepy.API(auth)
+        self.twit = tweepy.API(self.auth)
 
         # Listen to Twitter stream.
         try:
             if streamtwitter:
-                self.stream_twitter(username, password)
+                self.stream_twitter()
             else:
                 self.twitter_loop()
         except KeyboardInterrupt:
             print "Quitting..."
             sys.exit(0)
 
-    def stream_twitter(self, username, password):
+    def stream_twitter(self):
         listener = Listener(self.twit)
         listener.add_handler(self.handle_tweet)
-        stream = tweepy.streaming.Stream(username, password, listener)
+        stream = tweepy.streaming.Stream(self.auth, listener)
         searchstr = self.cfg.get('twitter_search');
         stream.filter( track=( searchstr, ) )
 
@@ -293,8 +293,13 @@ class Twippy(BridgeClass):
         #self.dump(tweet.author)
 
         # Skip tweets from own account.
+        try:
+            from_user = tweet.from_user
+        except AttributeError:
+            from_user = tweet.author.screen_name
         #if tweet.from_user == self.twit.me().screen_name:
-        if tweet.author.screen_name == self.twit.me().screen_name:
+        #if tweet.author.screen_name == self.twit.me().screen_name:
+        if from_user == self.twit.me().screen_name:
             #print "screen_name = my_name", tweet.user.screen_name, my_name
             self.logprint("Tweet was from myself", tweet)
             return
@@ -308,7 +313,7 @@ class Twippy(BridgeClass):
         # Ugly hack to make GoldQuest work.
         text = '!quest %s' % text
         #message = Shout(id=tweet.id, text=text, name=tweet.from_user)
-        message = Shout(id=tweet.id, text=text, name=tweet.author.screen_name)
+        message = Shout(id=tweet.id, text=text, name=from_user)
         #self.dump(message)
 
         # Send text to all plugins.
