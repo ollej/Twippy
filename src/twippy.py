@@ -30,6 +30,7 @@ import re
 import string
 import tweepy
 import time
+import socket
 from datetime import datetime, date, timedelta
 from twisted.internet import task
 from twisted.internet import reactor
@@ -52,6 +53,28 @@ class Listener (tweepy.streaming.StreamListener):
         else:
             print "ERROR: No twitter status handler."
         return
+
+class TwippyStream(tweepy.streaming.Stream):
+    """
+    Extending Stream to override some stuff.
+    """
+    def _run(self):
+        """
+        Extending to add logprints.
+        """
+        print "%s://%s%s" % (self.scheme, self.host, self.url)
+        super(TwippyStream, self)._run()
+
+    def userstream(self, count=None, async=False, secure=True):
+        """
+        It seems the user stream uses the same host as the default streams now.
+        """
+        if self.running:
+            raise TweepError('Stream object already connected!')
+        self.url = '/2/user.json'
+        if count:
+            self.url += '&count=%s' % count
+        self._start(async)
 
 class Shout(BridgeClass):
     id = None
@@ -227,9 +250,14 @@ class Twippy(BridgeClass):
     def stream_twitter(self):
         listener = Listener(self.twit)
         listener.add_handler(self.handle_tweet)
-        stream = tweepy.streaming.Stream(self.auth, listener)
+        stream = tweepy.streaming.Stream(self.auth, listener) #, secure=True)
         searchstr = self.cfg.get('twitter_search');
-        stream.filter( track=( searchstr, ) )
+        try:
+            #stream.userstream()
+            stream.filter( track=( searchstr, ) )
+        except socket.error, se:
+            self.logprint("Socket error when connecting to stream.", se)
+            sys.exit(3)
 
     def twitter_loop(self):
         # Start listening to Twitter mentions.
